@@ -118,7 +118,7 @@ class Database:
             logger.info("MongoDB connection closed")
 
 class SelfPing:
-    def __init__(self, url: str = os.getenv("RENDER_URL", "https://api-v9ww.onrender.com").join('/health') , interval: int = 840):
+    def __init__(self, url: str = os.getenv("RENDER_URL", "https://api-v9ww.onrender.com") + '/health' , interval: int = 840):
         self.url = url
         self.interval = interval
         self.session: Optional[aiohttp.ClientSession] = None
