@@ -527,7 +527,7 @@ async def setup_auth(interaction: discord.Interaction):
     )
     embed.add_field(
         name="Open Source",
-        value="(This project is completely open source! You can review the code and see exactly how the bot works at:)[https://github.com/flyhighr/Archiver/]",
+        value="[This project is completely open source!](https://github.com/flyhighr/Archiver/)",
         inline=False
     )
     await interaction.response.send_message(embed=embed, ephemeral=True)
