@@ -118,8 +118,8 @@ class Database:
             logger.info("MongoDB connection closed")
 
 class SelfPing:
-    def __init__(self, url: str = os.getenv("RENDER_URL", "https://api-v9ww.onrender.com") + '/health' , interval: int = 840):
-        self.url = url
+    def __init__(self, url: str = None, interval: int = 840):
+        self.url = url or os.getenv("RENDER_URL", "https://api-v9ww.onrender.com") + '/health'
         self.interval = interval
         self.session: Optional[aiohttp.ClientSession] = None
         self.is_running = False
@@ -165,22 +165,21 @@ class SelfPing:
 async def shutdown():
     logger.info("Graceful shutdown...")
     await Database.close_db()
-    sys.exit(0)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ping_service = SelfPing()
-    await Database.connect_db()
-    await ping_service.start()
-    
-    def signal_handler(sig, frame):
-        logger.info(f"Received signal {sig}")
-        asyncio.create_task(shutdown())
-
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
     try:
+        await Database.connect_db()
+        await ping_service.start()
+        
+        def signal_handler(sig, frame):
+            logger.info(f"Received signal {sig}")
+            asyncio.create_task(shutdown())
+
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+        
         yield
     finally:
         await ping_service.stop()
