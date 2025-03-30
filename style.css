@@ -1526,3 +1526,93 @@ blockquote {
     white-space: pre-wrap;
     word-break: break-word;
 }
+
+/* Fix for content overflowing the container */
+.message-content {
+    flex: 1;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%; /* Force full width */
+    box-sizing: border-box; /* Include padding in width calculation */
+    overflow-x: hidden; /* Hide horizontal overflow */
+}
+
+/* Ensure all content inside messages is properly contained */
+.text, 
+.embed, 
+.attachment,
+.reply-reference,
+.embed-description, 
+.embed-title, 
+.embed-field-value,
+.embed-field,
+.attachment-image,
+.attachment-video,
+.attachment-audio,
+.attachment-details {
+    max-width: 100%;
+    width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+    overflow-x: hidden;
+}
+
+/* Ensure embeds stay within boundaries */
+.embeds {
+    max-width: 100%;
+    width: 100%;
+    overflow-x: hidden;
+}
+
+.embed {
+    max-width: 100%;
+    width: auto;
+    box-sizing: border-box;
+}
+
+/* Fix for links and URLs */
+.text-link {
+    word-break: break-all;
+    max-width: 100%;
+    display: inline-block;
+    overflow-wrap: break-word;
+}
+
+/* Make sure images don't overflow */
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Ensure code blocks don't overflow */
+.code-block {
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: pre-wrap;
+}
+
+/* Fix for messages layout */
+.messages-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.message {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    overflow-x: hidden;
+}
+
+/* Force all inline elements to wrap */
+* {
+    white-space: normal;
+}
+
+pre, code {
+    white-space: pre-wrap;
+}
