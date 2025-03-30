@@ -248,7 +248,60 @@ class Database:
                 logger.info("Created conversation_id index")
             except Exception as e:
                 logger.warning(f"Could not create conversation_id index: {e}")
-
+                    
+            try:
+                await cls.db.conversations.create_index("channel_id", background=True)
+                logger.info("Created channel_id index")
+            except Exception as e:
+                logger.warning(f"Could not create channel_id index: {e}")
+                    
+            try:
+                await cls.db.conversations.create_index("created_at", background=True)
+                logger.info("Created created_at index")
+            except Exception as e:
+                logger.warning(f"Could not create created_at index: {e}")
+                    
+            # User indexes
+            if 'users' in cls.COLLECTIONS:
+                try:
+                    await cls.db.users.create_index("id", unique=True, background=True)
+                    logger.info("Created user id index")
+                except Exception as e:
+                    logger.warning(f"Could not create user id index: {e}")
+            
+            # Additional useful indexes
+            try:
+                # Compound index for participant lookup
+                await cls.db.conversations.create_index([("participants.id", 1)], background=True)
+                logger.info("Created participants.id index")
+            except Exception as e:
+                logger.warning(f"Could not create participants.id index: {e}")
+                
+            try:
+                # Index for group DMs
+                await cls.db.conversations.create_index("is_group_dm", background=True)
+                logger.info("Created is_group_dm index")
+            except Exception as e:
+                logger.warning(f"Could not create is_group_dm index: {e}")
+                
+            try:
+                # Index for last_updated for sorting
+                await cls.db.conversations.create_index("last_updated", background=True)
+                logger.info("Created last_updated index")
+            except Exception as e:
+                logger.warning(f"Could not create last_updated index: {e}")
+                
+            try:
+                # Compound index for channel and timestamp
+                await cls.db.conversations.create_index([("channel_id", 1), ("created_at", -1)], background=True)
+                logger.info("Created compound channel_id/created_at index")
+            except Exception as e:
+                logger.warning(f"Could not create compound channel_id/created_at index: {e}")
+                    
+        except Exception as e:
+            logger.error(f"Error creating database indexes: {e}")
+            logger.warning("Continuing without index creation")
+        
     @classmethod
     async def close_db(cls):
         if cls.client:
