@@ -901,22 +901,19 @@ body {
     justify-content: flex-end;
 }
 
-/* Fix the profile avatar positioning to prevent overlap */
+/* Reset and fix the profile layout */
 .profile-banner {
-    height: 100px; /* Slightly shorter banner */
+    height: 120px;
     background-color: var(--bg-tertiary);
     position: relative;
-    margin-bottom: 50px; /* Add space below banner for avatar */
 }
 
 .profile-avatar-wrapper {
     display: flex;
     justify-content: center;
-    position: absolute; /* Position absolutely */
-    bottom: -40px; /* Position 40px below the banner */
-    left: 0;
-    right: 0;
-    margin: 0 auto;
+    margin-top: -40px; /* Negative margin to pull up avatar */
+    position: relative; /* Keep relative positioning */
+    z-index: 2; /* Ensure avatar is above other elements */
 }
 
 .profile-avatar {
@@ -929,8 +926,8 @@ body {
 }
 
 .profile-info {
-    padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-lg);
-    margin-top: 40px; /* Add top margin to info to make space for avatar */
+    padding: 0 var(--spacing-lg) var(--spacing-lg);
+    margin-top: var(--spacing-md); /* Small margin after avatar */
 }
 
 .profile-avatar img {
