@@ -416,12 +416,15 @@ body {
     position: relative;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .messages-wrapper {
     overflow-y: auto;
     flex: 1;
     padding: var(--spacing-lg);
+    width: 100%;
+    max-width: 100%;
 }
 
 /* Loading */
@@ -479,6 +482,9 @@ body {
     border-radius: var(--border-radius);
     position: relative;
     transition: background-color 0.2s ease;
+    max-width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
 .message:hover {
@@ -507,6 +513,7 @@ body {
 .continuation-spacer {
     width: 40px;
     margin-right: var(--spacing-md);
+    flex-shrink: 0;
 }
 
 .avatar {
@@ -544,10 +551,11 @@ body {
 
 .message-content {
     flex: 1;
-    min-width: 0; /* Important for text overflow handling */
-    max-width: 100%; /* Ensure content doesn't overflow container */
-    word-wrap: break-word; /* Break long words */
-    overflow-wrap: break-word; /* Modern browsers */
+    min-width: 0;
+    max-width: calc(100% - 60px);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    overflow: hidden;
 }
 
 .message-header {
@@ -589,14 +597,17 @@ body {
     white-space: pre-wrap;
     word-break: break-word;
     font-size: 0.9375rem;
-    max-width: 100%;
     overflow-wrap: break-word;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 /* Reply */
 .reply-container {
     margin-bottom: var(--spacing-sm);
     position: relative;
+    max-width: 100%;
 }
 
 .reply-reference {
@@ -615,7 +626,8 @@ body {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    max-width: fit-content;
+    max-width: 100%;
+    width: fit-content;
 }
 
 .reply-reference:hover {
@@ -642,6 +654,9 @@ body {
     align-items: baseline;
     gap: var(--spacing-xs);
     flex-wrap: wrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .reply-author {
@@ -651,6 +666,10 @@ body {
 
 .reply-text {
     color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
 }
 
 /* Reactions */
@@ -659,6 +678,7 @@ body {
     flex-wrap: wrap;
     gap: var(--spacing-sm);
     margin-top: var(--spacing-sm);
+    max-width: 100%;
 }
 
 .reaction {
@@ -703,6 +723,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
+    max-width: 100%;
 }
 
 .attachment {
@@ -711,6 +732,7 @@ body {
     padding: var(--spacing-sm);
     font-size: 0.875rem;
     transition: background-color 0.2s ease;
+    max-width: 100%;
 }
 
 .attachment:not(.attachment-media) {
@@ -726,7 +748,7 @@ body {
 }
 
 .attachment-image {
-    max-width: 400px;
+    max-width: 100%;
     border-radius: var(--border-radius);
     overflow: hidden;
 }
@@ -753,7 +775,7 @@ body {
 }
 
 .attachment-video {
-    max-width: 400px;
+    max-width: 100%;
     border-radius: var(--border-radius);
     overflow: hidden;
 }
@@ -766,7 +788,7 @@ body {
 
 .attachment-audio {
     width: 100%;
-    max-width: 400px;
+    max-width: 100%;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
@@ -788,6 +810,7 @@ body {
 .attachment-details {
     flex: 1;
     min-width: 0;
+    overflow: hidden;
 }
 
 .attachment-name {
@@ -830,6 +853,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
+    max-width: 100%;
 }
 
 .embed {
@@ -837,9 +861,10 @@ body {
     border-radius: var(--border-radius);
     border-left: 4px solid;
     padding: var(--spacing-sm);
-    max-width: 520px;
+    max-width: 100%;
+    overflow: hidden;
     word-wrap: break-word;
-    overflow-wrap: break-word;
+    box-sizing: border-box;
 }
 
 .embed-author {
@@ -917,6 +942,7 @@ body {
     margin: var(--spacing-sm) 0;
     border-radius: var(--border-radius);
     overflow: hidden;
+    max-width: 100%;
 }
 
 .embed-image img {
@@ -1279,6 +1305,7 @@ body {
     color: var(--link-color);
     text-decoration: none;
     word-break: break-all;
+    overflow-wrap: break-word;
 }
 
 .text-link:hover {
@@ -1445,6 +1472,11 @@ body {
         border-radius: 0;
         margin-top: 0;
     }
+    
+    /* Fix message content for mobile */
+    .message-content {
+        max-width: calc(100% - 40px);
+    }
 }
 
 /* Default hide mobile-only elements */
@@ -1527,92 +1559,97 @@ blockquote {
     word-break: break-word;
 }
 
-/* Fix for content overflowing the container */
+/* Specific fix for text overflow in messages */
 .message-content {
-    flex: 1;
-    min-width: 0;
-    max-width: 100%;
-    width: 100%; /* Force full width */
-    box-sizing: border-box; /* Include padding in width calculation */
-    overflow-x: hidden; /* Hide horizontal overflow */
+    max-width: calc(100% - 60px);
+    overflow: hidden;
 }
 
-/* Ensure all content inside messages is properly contained */
-.text, 
-.embed, 
-.attachment,
-.reply-reference,
-.embed-description, 
-.embed-title, 
-.embed-field-value,
-.embed-field,
-.attachment-image,
-.attachment-video,
-.attachment-audio,
-.attachment-details {
-    max-width: 100%;
-    width: 100%;
-    overflow-wrap: break-word;
-    word-wrap: break-word;
-    word-break: break-word;
-    hyphens: auto;
-    overflow-x: hidden;
-}
-
-/* Ensure embeds stay within boundaries */
-.embeds {
-    max-width: 100%;
-    width: 100%;
-    overflow-x: hidden;
-}
-
+/* Ensure embeds don't overflow */
 .embed {
     max-width: 100%;
-    width: auto;
     box-sizing: border-box;
 }
 
-/* Fix for links and URLs */
-.text-link {
+/* Force URLs to break */
+a {
     word-break: break-all;
-    max-width: 100%;
-    display: inline-block;
     overflow-wrap: break-word;
 }
 
-/* Make sure images don't overflow */
-img {
+/* Fix for image overflow */
+img, video, audio {
     max-width: 100%;
     height: auto;
 }
-
-/* Ensure code blocks don't overflow */
-.code-block {
-    max-width: 100%;
-    overflow-x: auto;
-    white-space: pre-wrap;
-}
-
-/* Fix for messages layout */
-.messages-wrapper {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
-}
-
-.message {
-    width: 100%;
+/* Ensure all containers respect max-width */
+.messages-container,
+.message,
+.message-content,
+.text,
+.embed,
+.attachment,
+.attachment-media,
+.attachment-image,
+.attachment-video,
+.attachment-audio,
+.embed-image,
+.embed-thumbnail,
+.profile-section,
+.profile-info {
     max-width: 100%;
     box-sizing: border-box;
-    display: flex;
+}
+
+/* Fix for long message content */
+.message-content {
+    width: 100%;
+    max-width: calc(100% - 60px);
     overflow-x: hidden;
 }
 
-/* Force all inline elements to wrap */
+/* Prevent text from extending beyond its container */
 * {
-    white-space: normal;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    -ms-word-break: break-word;
+    word-break: break-word;
 }
 
-pre, code {
-    white-space: pre-wrap;
+/* Specific fix for links in embeds */
+.embed a {
+    max-width: 100%;
+    display: inline-block;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+/* Make reply references wrap properly */
+.reply-reference {
+    max-width: 100%;
+    overflow: hidden;
+}
+
+/* Fix for mobile view */
+@media (max-width: 576px) {
+    .message-content {
+        max-width: calc(100% - 40px);
+    }
+    
+    .embed, .attachment {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+/* Ensure content doesn't overflow in messages */
+.text {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+/* Fix for code blocks */
+pre {
+    max-width: 100%;
+    overflow-x: auto;
 }
