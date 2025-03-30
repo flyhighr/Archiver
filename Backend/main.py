@@ -218,34 +218,36 @@ class Database:
             # Try to create indexes without checking first - safer approach
             # Use try/except for each index to prevent one failure from stopping others
             try:
+                # Check for duplicates first
+                pipeline = [
+                    {"$group": {"_id": "$conversation_id", "count": {"$sum": 1}}},
+                    {"$match": {"count": {"$gt": 1}}},
+                    {"$project": {"conversation_id": "$_id", "count": 1}},
+                    {"$sort": {"count": -1}}
+                ]
+                duplicates = await cls.db.conversations.aggregate(pipeline).to_list(length=100)
+                
+                if duplicates:
+                    logger.warning(f"Found {len(duplicates)} duplicate conversation_ids")
+                    for dup in duplicates:
+                        logger.warning(f"Duplicate conversation_id: {dup['conversation_id']} (count: {dup['count']})")
+                        # Keep only the most recent document for each duplicate
+                        cursor = cls.db.conversations.find(
+                            {"conversation_id": dup['conversation_id']}
+                        ).sort("last_updated", -1)
+                        docs = await cursor.to_list(length=dup['count'])
+                        
+                        # Keep the first one (most recent), delete the rest
+                        for doc in docs[1:]:
+                            await cls.db.conversations.delete_one({"_id": doc["_id"]})
+                        
+                        logger.info(f"Removed {len(docs)-1} duplicate(s) for conversation_id: {dup['conversation_id']}")
+                
+                # Now try to create the unique index
                 await cls.db.conversations.create_index("conversation_id", unique=True, background=True)
                 logger.info("Created conversation_id index")
             except Exception as e:
                 logger.warning(f"Could not create conversation_id index: {e}")
-                
-            try:
-                await cls.db.conversations.create_index("channel_id", background=True)
-                logger.info("Created channel_id index")
-            except Exception as e:
-                logger.warning(f"Could not create channel_id index: {e}")
-                
-            try:
-                await cls.db.conversations.create_index("created_at", background=True)
-                logger.info("Created created_at index")
-            except Exception as e:
-                logger.warning(f"Could not create created_at index: {e}")
-                
-            # User indexes
-            if 'users' in cls.COLLECTIONS:
-                try:
-                    await cls.db.users.create_index("id", unique=True, background=True)
-                    logger.info("Created user id index")
-                except Exception as e:
-                    logger.warning(f"Could not create user id index: {e}")
-                
-        except Exception as e:
-            logger.error(f"Error creating database indexes: {e}")
-            logger.warning("Continuing without index creation")
 
     @classmethod
     async def close_db(cls):
