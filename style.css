@@ -901,17 +901,22 @@ body {
     justify-content: flex-end;
 }
 
+/* Fix the profile avatar positioning to prevent overlap */
 .profile-banner {
-    height: 120px;
-    background-color: var(--accent-secondary);
+    height: 100px; /* Slightly shorter banner */
+    background-color: var(--bg-tertiary);
     position: relative;
+    margin-bottom: 50px; /* Add space below banner for avatar */
 }
 
 .profile-avatar-wrapper {
     display: flex;
     justify-content: center;
-    margin-top: -40px;
-    margin-bottom: var(--spacing-md);
+    position: absolute; /* Position absolutely */
+    bottom: -40px; /* Position 40px below the banner */
+    left: 0;
+    right: 0;
+    margin: 0 auto;
 }
 
 .profile-avatar {
@@ -920,6 +925,12 @@ body {
     border-radius: 50%;
     border: 6px solid var(--bg-secondary);
     overflow: hidden;
+    background-color: var(--bg-secondary);
+}
+
+.profile-info {
+    padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-lg);
+    margin-top: 40px; /* Add top margin to info to make space for avatar */
 }
 
 .profile-avatar img {
