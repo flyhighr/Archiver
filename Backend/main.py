@@ -215,20 +215,34 @@ class Database:
     async def _create_indexes(cls):
         """Create indexes for better query performance"""
         try:
-            # Create indexes directly without checking first (safer approach)
+            # Try to create indexes without checking first - safer approach
+            # Use try/except for each index to prevent one failure from stopping others
             try:
-                await cls.db.conversations.create_index("conversation_id", unique=True)
-                await cls.db.conversations.create_index("channel_id")
-                await cls.db.conversations.create_index("created_at")
-                
-                # User indexes
-                if 'users' in cls.COLLECTIONS:
-                    await cls.db.users.create_index("id", unique=True)
-                
-                logger.info("Database indexes created successfully")
+                await cls.db.conversations.create_index("conversation_id", unique=True, background=True)
+                logger.info("Created conversation_id index")
             except Exception as e:
-                logger.error(f"Error creating database indexes: {e}")
-                logger.warning("Continuing without index creation")
+                logger.warning(f"Could not create conversation_id index: {e}")
+                
+            try:
+                await cls.db.conversations.create_index("channel_id", background=True)
+                logger.info("Created channel_id index")
+            except Exception as e:
+                logger.warning(f"Could not create channel_id index: {e}")
+                
+            try:
+                await cls.db.conversations.create_index("created_at", background=True)
+                logger.info("Created created_at index")
+            except Exception as e:
+                logger.warning(f"Could not create created_at index: {e}")
+                
+            # User indexes
+            if 'users' in cls.COLLECTIONS:
+                try:
+                    await cls.db.users.create_index("id", unique=True, background=True)
+                    logger.info("Created user id index")
+                except Exception as e:
+                    logger.warning(f"Could not create user id index: {e}")
+                
         except Exception as e:
             logger.error(f"Error creating database indexes: {e}")
             logger.warning("Continuing without index creation")
@@ -236,9 +250,12 @@ class Database:
     @classmethod
     async def close_db(cls):
         if cls.client:
-            logger.info("Closing MongoDB connection...")
-            cls.client.close()
-            logger.info("MongoDB connection closed")
+            try:
+                logger.info("Closing MongoDB connection...")
+                cls.client.close()
+                logger.info("MongoDB connection closed")
+            except Exception as e:
+                logger.error(f"Error closing MongoDB connection: {e}")
 
 # Enhanced Self-Ping service for improved reliability
 class SelfPing:
@@ -285,34 +302,44 @@ class SelfPing:
             await asyncio.sleep(60)
 
     async def stop(self):
-        self.is_running = False
-        if self._task:
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
-            self._task = None
-        
-        if self.session:
-            await self.session.close()
+        try:
+            self.is_running = False
+            if self._task:
+                self._task.cancel()
+                try:
+                    await asyncio.wait_for(self._task, timeout=1.0)
+                except (asyncio.CancelledError, asyncio.TimeoutError):
+                    # This is expected when canceling tasks
+                    pass
+                self._task = None
             
-        logger.info("Self-ping service stopped")
+            if self.session:
+                await self.session.close()
+                
+            logger.info("Self-ping service stopped")
+        except Exception as e:
+            logger.error(f"Error stopping self-ping service: {e}")
 
 # Enhanced shutdown handler
 async def shutdown():
     logger.info("Initiating graceful shutdown...")
     
-    # Add any cleanup tasks here
-    tasks = []
-    for task in asyncio.all_tasks():
-        if task is not asyncio.current_task():
-            task.cancel()
-            tasks.append(task)
-    
-    await asyncio.gather(*tasks, return_exceptions=True)
-    await Database.close_db()
-    logger.info("Shutdown complete")
+    try:
+        # Add any cleanup tasks here
+        tasks = []
+        for task in asyncio.all_tasks():
+            if task is not asyncio.current_task():
+                task.cancel()
+                tasks.append(task)
+        
+        if tasks:
+            # Wait with a timeout to avoid hanging
+            await asyncio.wait(tasks, timeout=5.0)
+        
+        await Database.close_db()
+        logger.info("Shutdown complete")
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}")
 
 # Enhanced application lifecycle management
 @asynccontextmanager
@@ -333,11 +360,16 @@ async def lifespan(app: FastAPI):
         
         logger.info("Application startup complete")
         yield
+    except Exception as e:
+        logger.error(f"Error during startup: {e}")
     finally:
         # Cleanup
-        await ping_service.stop()
-        await Database.close_db()
-        logger.info("Application shutdown complete")
+        try:
+            await ping_service.stop()
+            await Database.close_db()
+            logger.info("Application shutdown complete")
+        except Exception as e:
+            logger.error(f"Error during final cleanup: {e}")
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -428,7 +460,18 @@ async def process_user_profiles(conversation_data: dict) -> List[UserProfile]:
                     users[recipient_id] = recipient
     
     # Convert to list of UserProfile objects
-    return [UserProfile(**user_data) for user_data in users.values()]
+    try:
+        return [UserProfile(**user_data) for user_data in users.values()]
+    except Exception as e:
+        logger.error(f"Error processing user profiles: {e}")
+        # Return a partial list if possible
+        valid_users = []
+        for user_data in users.values():
+            try:
+                valid_users.append(UserProfile(**user_data))
+            except:
+                pass
+        return valid_users
 
 # Enhanced conversation creation endpoint
 @app.post("/conversations/")
@@ -437,6 +480,12 @@ async def create_conversation(conversation: Conversation):
     try:
         # Convert to dict for MongoDB storage
         conversation_dict = conversation.model_dump()
+        
+        # Validate channel_info has channel_id
+        if "channel_info" in conversation_dict and conversation_dict["channel_info"]:
+            if "channel_id" not in conversation_dict["channel_info"]:
+                # Add channel_id to channel_info if missing
+                conversation_dict["channel_info"]["channel_id"] = conversation_dict["channel_id"]
         
         # Add metadata and counts
         conversation_dict["last_updated"] = datetime.utcnow().isoformat()
@@ -469,8 +518,21 @@ async def create_conversation(conversation: Conversation):
         conversation_dict["is_group_dm"] = is_group_dm
         conversation_dict["dm_name"] = dm_name
         
-        # Insert into database
-        result = await Database.db.conversations.insert_one(conversation_dict)
+        # Check if conversation already exists
+        existing = await Database.db.conversations.find_one({"conversation_id": conversation.conversation_id})
+        if existing:
+            # Update instead of insert
+            result = await Database.db.conversations.replace_one(
+                {"conversation_id": conversation.conversation_id},
+                conversation_dict
+            )
+            logger.info(f"Updated existing conversation: {conversation.conversation_id}")
+            operation = "updated"
+        else:
+            # Insert new conversation
+            result = await Database.db.conversations.insert_one(conversation_dict)
+            logger.info(f"Created new conversation: {conversation.conversation_id} with {len(participants)} participants")
+            operation = "created"
         
         # Store users separately for future reference
         for user in participants:
@@ -482,18 +544,16 @@ async def create_conversation(conversation: Conversation):
                 upsert=True
             )
         
-        logger.info(f"Created conversation: {conversation.conversation_id} with {len(participants)} participants")
-        
         return {
             "conversation_id": conversation.conversation_id,
-            "inserted_id": str(result.inserted_id),
+            "operation": operation,
             "share_url": share_url,
             "message_count": conversation_dict["message_count"],
             "participants_count": len(participants)
         }
     except Exception as e:
         logger.error(f"Error creating conversation: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to create conversation :(")
+        raise HTTPException(status_code=500, detail=f"Failed to create conversation: {str(e)}")
 
 # Enhanced conversation retrieval endpoint
 @app.get("/conversations/{conversation_id}")
