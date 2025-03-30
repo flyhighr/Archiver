@@ -6,6 +6,52 @@
     <title>Discord Archive Viewer</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" type="text/css" href="style.css" />
+    <style>
+        /* Basic styling to ensure loading indicator works */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            color: #dcddde;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            border-top-color: #7289da;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .error {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            color: #f04747;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .retry-button {
+            background-color: #7289da;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            margin-top: 15px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body class="theme-dark">
     <div id="app">
@@ -128,6 +174,29 @@
     </div>
 
     <script>
+        // Global modal functions
+        function openImageModal(imageUrl) {
+            const modal = document.getElementById('image-modal');
+            const modalImg = modal.querySelector('img');
+            modalImg.src = imageUrl;
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function openVideoModal(videoUrl, videoType) {
+            const modal = document.getElementById('video-modal');
+            const videoElement = modal.querySelector('video');
+            const sourceElement = videoElement.querySelector('source');
+            
+            sourceElement.src = videoUrl;
+            sourceElement.type = videoType || 'video/mp4';
+            
+            videoElement.load();
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // DOM elements
         const app = document.getElementById('app');
         const loading = document.getElementById('loading');
         const messagesWrapper = document.getElementById('messages-wrapper');
@@ -140,6 +209,7 @@
         const channelName = document.getElementById('channel-name');
         const participantsList = document.getElementById('participants-list');
         
+        // API configuration
         const API_URL = 'https://api-v9ww.onrender.com';
 
         // User cache to store user data
@@ -190,7 +260,7 @@
 
         // Pin button click
         document.getElementById('pin-button').addEventListener('click', () => {
-            if (pinnedMessages.length > 0) {
+            if (pinnedMessages && pinnedMessages.length > 0) {
                 showPinnedMessages();
             } else {
                 alert('No pinned messages in this conversation');
@@ -206,6 +276,9 @@
                 if (e.target.closest('#video-modal')) {
                     document.querySelector('#video-modal video').pause();
                 }
+                
+                // Re-enable scrolling
+                document.body.style.overflow = '';
             });
         });
 
@@ -219,6 +292,9 @@
                     if (modal.id === 'video-modal') {
                         document.querySelector('#video-modal video').pause();
                     }
+                    
+                    // Re-enable scrolling
+                    document.body.style.overflow = '';
                 }
             });
         });
@@ -238,6 +314,9 @@
                 if (userProfile.classList.contains('active')) {
                     userProfile.classList.remove('active');
                 }
+                
+                // Re-enable scrolling
+                document.body.style.overflow = '';
             }
         });
 
@@ -255,6 +334,7 @@
             }
             
             // Filter messages based on search term
+            let foundMatch = false;
             document.querySelectorAll('.message').forEach(msg => {
                 const content = msg.querySelector('.text')?.textContent.toLowerCase() || '';
                 const authorName = msg.querySelector('.author')?.textContent.toLowerCase() || '';
@@ -266,8 +346,9 @@
                     msg.classList.add('search-highlight');
                     
                     // Scroll to the first match
-                    if (document.querySelector('.search-highlight') === msg) {
+                    if (!foundMatch) {
                         msg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        foundMatch = true;
                     }
                 } else {
                     msg.style.display = 'none';
@@ -276,6 +357,7 @@
             });
         });
 
+        // Format a file size in bytes to a human-readable format
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 B';
             const k = 1024;
@@ -284,42 +366,53 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         }
 
+        // Format a timestamp to a human-readable format
         function formatTimestamp(timestamp, showFullDate = false) {
-            const date = new Date(timestamp);
-            const now = new Date();
-            const yesterday = new Date(now);
-            yesterday.setDate(now.getDate() - 1);
+            if (!timestamp) return 'Unknown';
             
-            const timeString = date.toLocaleTimeString(undefined, {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            
-            // Same day
-            if (date.toDateString() === now.toDateString()) {
-                return `Today at ${timeString}`;
-            }
-            
-            // Yesterday
-            if (date.toDateString() === yesterday.toDateString()) {
-                return `Yesterday at ${timeString}`;
-            }
-            
-            // Show full date for older messages or when explicitly requested
-            if (showFullDate || now - date > 7 * 24 * 60 * 60 * 1000) {
+            try {
+                const date = new Date(timestamp);
+                if (isNaN(date.getTime())) return 'Invalid date';
+                
+                const now = new Date();
+                const yesterday = new Date(now);
+                yesterday.setDate(now.getDate() - 1);
+                
+                const timeString = date.toLocaleTimeString(undefined, {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                // Same day
+                if (date.toDateString() === now.toDateString()) {
+                    return `Today at ${timeString}`;
+                }
+                
+                // Yesterday
+                if (date.toDateString() === yesterday.toDateString()) {
+                    return `Yesterday at ${timeString}`;
+                }
+                
+                // Show full date for older messages or when explicitly requested
+                if (showFullDate || now - date > 7 * 24 * 60 * 60 * 1000) {
+                    return `${date.toLocaleDateString(undefined, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                    })} at ${timeString}`;
+                }
+                
+                // Within a week
                 return `${date.toLocaleDateString(undefined, {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric'
+                    weekday: 'long'
                 })} at ${timeString}`;
+            } catch (e) {
+                console.error('Error formatting timestamp:', e);
+                return 'Invalid date';
             }
-            
-            // Within a week
-            return `${date.toLocaleDateString(undefined, {
-                weekday: 'long'
-            })} at ${timeString}`;
         }
 
+        // Scroll to a specific message by ID
         function scrollToMessage(messageId) {
             const element = document.getElementById(`message-${messageId}`);
             if (element) {
@@ -331,6 +424,7 @@
             }
         }
 
+        // Fetch conversation data from API
         async function fetchConversation() {
             const urlParams = new URLSearchParams(window.location.search);
             const conversationId = urlParams.get('id');
@@ -341,12 +435,21 @@
             }
 
             try {
+                console.log(`Fetching conversation: ${API_URL}/conversations/${conversationId}`);
+                
                 const response = await fetch(`${API_URL}/conversations/${conversationId}`);
+                
+                console.log('Response status:', response.status);
+                
                 if (!response.ok) {
-                    throw new Error('Failed to fetch conversation');
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    throw new Error(`Failed to fetch conversation: ${response.status} ${errorText}`);
                 }
 
                 const conversation = await response.json();
+                console.log('Conversation data received:', conversation);
+                
                 currentConversation = conversation;
                 
                 // Process participants
@@ -386,10 +489,12 @@
                 // Display messages
                 displayConversation(conversation);
             } catch (error) {
-                showError(error.message);
+                console.error('Error fetching conversation:', error);
+                showError(error.message || 'Failed to load conversation');
             }
         }
 
+        // Set the channel name based on conversation data
         function setChannelName(conversation) {
             let name = "Direct Message";
             
@@ -409,8 +514,14 @@
             channelName.textContent = name;
         }
 
+        // Display participants in the sidebar
         function displayParticipants(users) {
             participantsList.innerHTML = '';
+            
+            if (!users || users.length === 0) {
+                participantsList.innerHTML = '<div class="no-participants">No participants found</div>';
+                return;
+            }
             
             users.forEach(user => {
                 const userElement = document.createElement('div');
@@ -441,6 +552,7 @@
             });
         }
 
+        // Generate a default avatar for a user
         function generateDefaultAvatar(username) {
             if (!username) return 'https://cdn.discordapp.com/embed/avatars/0.png';
             
@@ -451,6 +563,7 @@
             return `https://cdn.discordapp.com/embed/avatars/${avatarNumber}.png`;
         }
 
+        // Show a user's profile in the sidebar
         function showUserProfile(user) {
             // Set profile data
             document.getElementById('profile-username').textContent = user.username;
@@ -486,11 +599,18 @@
             userProfile.classList.add('active');
         }
 
+        // Display conversation messages
         function displayConversation(conversation) {
+            if (!conversation || !conversation.messages || conversation.messages.length === 0) {
+                loading.remove();
+                messagesWrapper.innerHTML = '<div class="no-messages">No messages in this conversation</div>';
+                return;
+            }
+            
             loading.remove();
             
             const messageMap = createMessageMap(conversation.messages);
-            const sortedMessages = conversation.messages
+            const sortedMessages = [...conversation.messages]
                 .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
             // Group messages by day for date separators
@@ -507,10 +627,15 @@
                 let previousAuthor = null;
                 
                 messages.forEach((message, index) => {
+                    if (!message || !message.author) {
+                        console.warn('Invalid message data:', message);
+                        return;
+                    }
+                    
                     const isDeleted = message.content?.startsWith('[deleted-msg]') || message.is_deleted;
                     const messageContent = isDeleted 
                         ? message.content?.replace('[deleted-msg]', '').trim() || 'This message was deleted.'
-                        : message.content;
+                        : message.content || '';
                     
                     const isContinuation = previousAuthor === message.author.id &&
                                            index > 0 &&
@@ -523,7 +648,7 @@
                     
                     const authorName = message.author.global_name || message.author.display_name || message.author.username;
                     const avatarUrl = message.author.avatar_url || generateDefaultAvatar(message.author.username);
-                    const avatarLetter = (authorName)[0].toUpperCase();
+                    const avatarLetter = authorName ? authorName[0].toUpperCase() : '?';
                     
                     const timestamp = formatTimestamp(message.timestamp);
                     const fullTimestamp = formatTimestamp(message.timestamp, true);
@@ -584,23 +709,25 @@
 
             messagesWrapper.innerHTML = messagesHtml;
             
-            // Add event listeners
-            document.querySelectorAll('.reply-reference').forEach(ref => {
-                ref.addEventListener('click', (e) => {
-                    const messageId = e.currentTarget.dataset.messageId;
+            // Add event listeners using event delegation
+            messagesWrapper.addEventListener('click', (e) => {
+                // Handle reply reference clicks
+                if (e.target.closest('.reply-reference')) {
+                    const messageId = e.target.closest('.reply-reference').dataset.messageId;
                     scrollToMessage(messageId);
-                });
-            });
-            
-            // Add event listeners to avatars and usernames
-            document.querySelectorAll('.avatar, .author').forEach(element => {
-                element.addEventListener('click', (e) => {
-                    const userId = e.currentTarget.dataset.authorId;
-                    const user = userCache[userId];
-                    if (user) {
-                        showUserProfile(user);
+                }
+                
+                // Handle avatar and username clicks
+                if (e.target.closest('.avatar') || e.target.closest('.author')) {
+                    const element = e.target.closest('.avatar, .author');
+                    if (element) {
+                        const userId = element.dataset.authorId;
+                        const user = userCache[userId];
+                        if (user) {
+                            showUserProfile(user);
+                        }
                     }
-                });
+                }
             });
             
             // Auto-scroll to bottom
@@ -609,131 +736,182 @@
             }, 100);
         }
 
+        // Group messages by day
         function groupMessagesByDay(messages) {
             const result = {};
             
             messages.forEach(message => {
-                const date = new Date(message.timestamp);
-                const day = date.toLocaleDateString(undefined, {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
+                if (!message || !message.timestamp) return;
                 
-                if (!result[day]) {
-                    result[day] = [];
+                try {
+                    const date = new Date(message.timestamp);
+                    if (isNaN(date.getTime())) return;
+                    
+                    const day = date.toLocaleDateString(undefined, {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+                    
+                    if (!result[day]) {
+                        result[day] = [];
+                    }
+                    
+                    result[day].push(message);
+                } catch (e) {
+                    console.error('Error grouping message by day:', e, message);
                 }
-                
-                result[day].push(message);
             });
             
             return result;
         }
 
+        // Check if a message is a continuation of the previous message
         function isMessageContinuation(currentMsg, previousMsg) {
-            if (!previousMsg) return false;
+            if (!previousMsg || !currentMsg) return false;
             
             // Messages are from the same author
             if (currentMsg.author.id !== previousMsg.author.id) return false;
             
             // Time difference is less than 5 minutes
-            const currentTime = new Date(currentMsg.timestamp).getTime();
-            const previousTime = new Date(previousMsg.timestamp).getTime();
-            const timeDiff = currentTime - previousTime;
-            
-            return timeDiff < 5 * 60 * 1000; // 5 minutes in milliseconds
+            try {
+                const currentTime = new Date(currentMsg.timestamp).getTime();
+                const previousTime = new Date(previousMsg.timestamp).getTime();
+                const timeDiff = currentTime - previousTime;
+                
+                return timeDiff < 5 * 60 * 1000; // 5 minutes in milliseconds
+            } catch (e) {
+                console.error('Error checking message continuation:', e);
+                return false;
+            }
         }
 
+        // Create HTML for a reply reference
         function createReplyHtml(replyData, messageMap) {
-            const originalMessage = messageMap[replyData.message_id];
-            const replyContent = originalMessage ? originalMessage.content : replyData.content;
-            const authorName = replyData.author.global_name || replyData.author.display_name || replyData.author.username;
-            const avatarUrl = replyData.author.avatar_url || generateDefaultAvatar(replyData.author.username);
+            if (!replyData || !replyData.author) return '';
             
-            return `
-                <div class="reply-container">
-                    <div class="reply-reference" data-message-id="${replyData.message_id}">
-                        <div class="reply-avatar">
-                            <img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(authorName)}'s avatar" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
-                        </div>
-                        <div class="reply-content">
-                            <span class="reply-author">${escapeHtml(authorName)}</span>
-                            <span class="reply-text">${escapeHtml(truncateText(replyContent, 100))}</span>
+            try {
+                const originalMessage = messageMap[replyData.message_id];
+                const replyContent = originalMessage ? originalMessage.content : replyData.content;
+                const authorName = replyData.author.global_name || replyData.author.display_name || replyData.author.username;
+                const avatarUrl = replyData.author.avatar_url || generateDefaultAvatar(replyData.author.username);
+                
+                return `
+                    <div class="reply-container">
+                        <div class="reply-reference" data-message-id="${replyData.message_id}">
+                            <div class="reply-avatar">
+                                <img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(authorName)}'s avatar" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                            </div>
+                            <div class="reply-content">
+                                <span class="reply-author">${escapeHtml(authorName)}</span>
+                                <span class="reply-text">${escapeHtml(truncateText(replyContent || '', 100))}</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
+                `;
+            } catch (e) {
+                console.error('Error creating reply HTML:', e);
+                return '';
+            }
         }
 
+        // Create a map of message IDs to messages
         function createMessageMap(messages) {
+            if (!messages || !Array.isArray(messages)) return {};
+            
             return messages.reduce((map, message) => {
-                map[message.message_id] = message;
+                if (message && message.message_id) {
+                    map[message.message_id] = message;
+                }
                 return map;
             }, {});
         }
 
+        // Create HTML for reactions
         function createReactionsHtml(reactions) {
-            if (!reactions?.length) return '';
+            if (!reactions || !Array.isArray(reactions) || reactions.length === 0) return '';
             
-            return `
-                <div class="reactions">
-                    ${reactions.map(reaction => {
-                        // Handle emoji URLs for custom emojis
-                        const emojiContent = reaction.emoji_url 
-                            ? `<img src="${escapeHtml(reaction.emoji_url)}" alt="${escapeHtml(reaction.emoji)}" class="emoji-img">` 
-                            : `<span class="reaction-emoji">${escapeHtml(reaction.emoji)}</span>`;
-                            
-                        return `
-                            <div class="reaction ${reaction.me ? 'reaction-me' : ''}">
-                                ${emojiContent}
-                                <span class="reaction-count">${reaction.count}</span>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            `;
+            try {
+                return `
+                    <div class="reactions">
+                        ${reactions.map(reaction => {
+                            // Handle emoji URLs for custom emojis
+                            const emojiContent = reaction.emoji_url 
+                                ? `<img src="${escapeHtml(reaction.emoji_url)}" alt="${escapeHtml(reaction.emoji || '')}" class="emoji-img">` 
+                                : `<span class="reaction-emoji">${escapeHtml(reaction.emoji || '')}</span>`;
+                                
+                            return `
+                                <div class="reaction ${reaction.me ? 'reaction-me' : ''}">
+                                    ${emojiContent}
+                                    <span class="reaction-count">${reaction.count || 0}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            } catch (e) {
+                console.error('Error creating reactions HTML:', e);
+                return '';
+            }
         }
 
+        // Create HTML for attachments
         function createAttachmentsHtml(attachments) {
-            if (!attachments?.length) return '';
+            if (!attachments || !Array.isArray(attachments) || attachments.length === 0) return '';
             
-            return `
-                <div class="attachments">
-                    ${attachments.map(attachment => {
-                        // Handle different attachment types
-                        if (isImageFile(attachment.filename)) {
-                            return createImageAttachment(attachment);
-                        } else if (isVideoFile(attachment.filename)) {
-                            return createVideoAttachment(attachment);
-                        } else if (isAudioFile(attachment.filename)) {
-                            return createAudioAttachment(attachment);
-                        } else {
-                            return createFileAttachment(attachment);
-                        }
-                    }).join('')}
-                </div>
-            `;
+            try {
+                return `
+                    <div class="attachments">
+                        ${attachments.map(attachment => {
+                            if (!attachment) return '';
+                            
+                            // Handle different attachment types
+                            if (isImageFile(attachment.filename)) {
+                                return createImageAttachment(attachment);
+                            } else if (isVideoFile(attachment.filename)) {
+                                return createVideoAttachment(attachment);
+                            } else if (isAudioFile(attachment.filename)) {
+                                return createAudioAttachment(attachment);
+                            } else {
+                                return createFileAttachment(attachment);
+                            }
+                        }).join('')}
+                    </div>
+                `;
+            } catch (e) {
+                console.error('Error creating attachments HTML:', e);
+                return '';
+            }
         }
 
+        // Create HTML for an image attachment
         function createImageAttachment(attachment) {
+            if (!attachment || !attachment.url) return '';
+            
             return `
                 <div class="attachment attachment-media">
                     <div class="attachment-image ${attachment.is_spoiler ? 'spoiler' : ''}">
                         <img src="${escapeHtml(attachment.url)}" 
-                             alt="${escapeHtml(attachment.filename)}"
+                             alt="${escapeHtml(attachment.filename || 'Image')}"
                              loading="lazy"
                              onclick="openImageModal('${escapeHtml(attachment.url)}')">
+                        <div class="image-loading-indicator">
+                            <div class="spinner"></div>
+                        </div>
                     </div>
                     <div class="attachment-info">
-                        <span class="attachment-name">${escapeHtml(attachment.filename)}</span>
-                        <span class="attachment-size">${formatFileSize(attachment.size)}</span>
+                        <span class="attachment-name">${escapeHtml(attachment.filename || 'Image')}</span>
+                        <span class="attachment-size">${formatFileSize(attachment.size || 0)}</span>
                     </div>
                 </div>
             `;
         }
 
+        // Create HTML for a video attachment
         function createVideoAttachment(attachment) {
+            if (!attachment || !attachment.url) return '';
+            
             return `
                 <div class="attachment attachment-media">
                     <div class="attachment-video">
@@ -743,14 +921,17 @@
                         </video>
                     </div>
                     <div class="attachment-info">
-                        <span class="attachment-name">${escapeHtml(attachment.filename)}</span>
-                        <span class="attachment-size">${formatFileSize(attachment.size)}</span>
+                        <span class="attachment-name">${escapeHtml(attachment.filename || 'Video')}</span>
+                        <span class="attachment-size">${formatFileSize(attachment.size || 0)}</span>
                     </div>
                 </div>
             `;
         }
 
+        // Create HTML for an audio attachment
         function createAudioAttachment(attachment) {
+            if (!attachment || !attachment.url) return '';
+            
             return `
                 <div class="attachment attachment-audio">
                     <audio controls>
@@ -758,15 +939,18 @@
                         Your browser does not support the audio element.
                     </audio>
                     <div class="attachment-info">
-                        <span class="attachment-name">${escapeHtml(attachment.filename)}</span>
-                        <span class="attachment-size">${formatFileSize(attachment.size)}</span>
+                        <span class="attachment-name">${escapeHtml(attachment.filename || 'Audio')}</span>
+                        <span class="attachment-size">${formatFileSize(attachment.size || 0)}</span>
                     </div>
                 </div>
             `;
         }
 
+        // Create HTML for a file attachment
         function createFileAttachment(attachment) {
-            const fileIcon = getFileIcon(attachment.filename);
+            if (!attachment || !attachment.url) return '';
+            
+            const fileIcon = getFileIcon(attachment.filename || 'file');
             return `
                 <div class="attachment">
                     <div class="attachment-icon">${fileIcon}</div>
@@ -775,9 +959,9 @@
                            target="_blank" 
                            class="attachment-name"
                            rel="noopener noreferrer">
-                            ${escapeHtml(attachment.filename)}
+                            ${escapeHtml(attachment.filename || 'File')}
                         </a>
-                        <span class="attachment-size">${formatFileSize(attachment.size)}</span>
+                        <span class="attachment-size">${formatFileSize(attachment.size || 0)}</span>
                     </div>
                     <a href="${escapeHtml(attachment.url)}" 
                        target="_blank" 
@@ -790,301 +974,308 @@
             `;
         }
 
-function createEmbedsHtml(embeds) {
-    if (!embeds?.length) return '';
-    
-    return `
-        <div class="embeds">
-            ${embeds.map(embed => {
-                const embedColor = embed.color ? `#${embed.color.toString(16).padStart(6, '0')}` : '#5865F2';
-                
+        // Create HTML for embeds
+        function createEmbedsHtml(embeds) {
+            if (!embeds || !Array.isArray(embeds) || embeds.length === 0) return '';
+            
+            try {
                 return `
-                    <div class="embed" style="border-left-color: ${embedColor}">
-                        ${embed.author ? `
-                            <div class="embed-author">
-                                ${embed.author.icon_url ? `
-                                    <img src="${escapeHtml(embed.author.icon_url)}" class="embed-author-icon" alt="">
-                                ` : ''}
-                                ${embed.author.name ? `
-                                    <span class="embed-author-name">${escapeHtml(embed.author.name)}</span>
-                                ` : ''}
-                            </div>
-                        ` : ''}
-                        
-                        ${embed.title ? `
-                            <div class="embed-title">
-                                ${embed.url ? `
-                                    <a href="${escapeHtml(embed.url)}" target="_blank" rel="noopener noreferrer">
-                                        ${escapeHtml(embed.title)}
-                                    </a>
-                                ` : escapeHtml(embed.title)}
-                            </div>
-                        ` : ''}
-                        
-                        ${embed.description ? `
-                            <div class="embed-description">
-                                ${formatMessageContent(embed.description)}
-                            </div>
-                        ` : ''}
-                        
-                        ${embed.fields && embed.fields.length > 0 ? `
-                            <div class="embed-fields">
-                                ${embed.fields.map(field => `
-                                    <div class="embed-field ${field.inline ? 'embed-field-inline' : ''}">
-                                        <div class="embed-field-name">${escapeHtml(field.name)}</div>
-                                        <div class="embed-field-value">${formatMessageContent(field.value)}</div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        ` : ''}
-                        
-                        ${embed.image ? `
-                            <div class="embed-image">
-                                <img src="${escapeHtml(embed.image.url)}" alt="Embed image" 
-                                     onclick="openImageModal('${escapeHtml(embed.image.url)}')">
-                            </div>
-                        ` : ''}
-                        
-                        ${embed.thumbnail ? `
-                            <div class="embed-thumbnail">
-                                <img src="${escapeHtml(embed.thumbnail.url)}" alt="Embed thumbnail"
-                                     onclick="openImageModal('${escapeHtml(embed.thumbnail.url)}')">
-                            </div>
-                        ` : ''}
-                        
-                        ${embed.footer ? `
-                            <div class="embed-footer">
-                                ${embed.footer.icon_url ? `
-                                    <img src="${escapeHtml(embed.footer.icon_url)}" class="embed-footer-icon" alt="">
-                                ` : ''}
-                                <span class="embed-footer-text">${escapeHtml(embed.footer.text)}</span>
-                                ${embed.timestamp ? `
-                                    <span class="embed-footer-separator">•</span>
-                                    <span class="embed-footer-timestamp">${formatTimestamp(embed.timestamp)}</span>
-                                ` : ''}
-                            </div>
-                        ` : embed.timestamp ? `
-                            <div class="embed-footer">
-                                <span class="embed-footer-timestamp">${formatTimestamp(embed.timestamp)}</span>
-                            </div>
-                        ` : ''}
+                    <div class="embeds">
+                        ${embeds.map(embed => {
+                            if (!embed) return '';
+                            
+                            const embedColor = embed.color ? `#${embed.color.toString(16).padStart(6, '0')}` : '#5865F2';
+                            
+                            return `
+                                <div class="embed" style="border-left-color: ${embedColor}">
+                                    ${embed.author ? `
+                                        <div class="embed-author">
+                                            ${embed.author.icon_url ? `
+                                                <img src="${escapeHtml(embed.author.icon_url)}" class="embed-author-icon" alt="">
+                                            ` : ''}
+                                            ${embed.author.name ? `
+                                                <span class="embed-author-name">${escapeHtml(embed.author.name)}</span>
+                                            ` : ''}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${embed.title ? `
+                                        <div class="embed-title">
+                                            ${embed.url ? `
+                                                <a href="${escapeHtml(embed.url)}" target="_blank" rel="noopener noreferrer">
+                                                    ${escapeHtml(embed.title)}
+                                                </a>
+                                            ` : escapeHtml(embed.title)}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${embed.description ? `
+                                        <div class="embed-description">
+                                            ${formatMessageContent(embed.description)}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${embed.fields && embed.fields.length > 0 ? `
+                                        <div class="embed-fields">
+                                            ${embed.fields.map(field => `
+                                                <div class="embed-field ${field.inline ? 'embed-field-inline' : ''}">
+                                                    <div class="embed-field-name">${escapeHtml(field.name || '')}</div>
+                                                    <div class="embed-field-value">${formatMessageContent(field.value || '')}</div>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${embed.image ? `
+                                        <div class="embed-image">
+                                            <img src="${escapeHtml(embed.image.url)}" alt="Embed image" 
+                                                 onclick="openImageModal('${escapeHtml(embed.image.url)}')">
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${embed.thumbnail ? `
+                                        <div class="embed-thumbnail">
+                                            <img src="${escapeHtml(embed.thumbnail.url)}" alt="Embed thumbnail"
+                                                 onclick="openImageModal('${escapeHtml(embed.thumbnail.url)}')">
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${embed.footer ? `
+                                        <div class="embed-footer">
+                                            ${embed.footer.icon_url ? `
+                                                <img src="${escapeHtml(embed.footer.icon_url)}" class="embed-footer-icon" alt="">
+                                            ` : ''}
+                                            <span class="embed-footer-text">${escapeHtml(embed.footer.text || '')}</span>
+                                            ${embed.timestamp ? `
+                                                <span class="embed-footer-separator">•</span>
+                                                <span class="embed-footer-timestamp">${formatTimestamp(embed.timestamp)}</span>
+                                            ` : ''}
+                                        </div>
+                                    ` : embed.timestamp ? `
+                                        <div class="embed-footer">
+                                            <span class="embed-footer-timestamp">${formatTimestamp(embed.timestamp)}</span>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        }).join('')}
                     </div>
                 `;
-            }).join('')}
-        </div>
-    `;
-}
+            } catch (e) {
+                console.error('Error creating embeds HTML:', e);
+                return '';
+            }
+        }
 
-function getFileIcon(filename) {
-    const extension = filename.split('.').pop().toLowerCase();
-    
-    const iconMap = {
-        // Documents
-        'pdf': '<i class="fas fa-file-pdf"></i>',
-        'doc': '<i class="fas fa-file-word"></i>',
-        'docx': '<i class="fas fa-file-word"></i>',
-        'xls': '<i class="fas fa-file-excel"></i>',
-        'xlsx': '<i class="fas fa-file-excel"></i>',
-        'ppt': '<i class="fas fa-file-powerpoint"></i>',
-        'pptx': '<i class="fas fa-file-powerpoint"></i>',
-        'txt': '<i class="fas fa-file-alt"></i>',
-        
-        // Images
-        'jpg': '<i class="fas fa-file-image"></i>',
-        'jpeg': '<i class="fas fa-file-image"></i>',
-        'png': '<i class="fas fa-file-image"></i>',
-        'gif': '<i class="fas fa-file-image"></i>',
-        'webp': '<i class="fas fa-file-image"></i>',
-        
-        // Audio/Video
-        'mp4': '<i class="fas fa-file-video"></i>',
-        'mov': '<i class="fas fa-file-video"></i>',
-        'avi': '<i class="fas fa-file-video"></i>',
-        'mkv': '<i class="fas fa-file-video"></i>',
-        'mp3': '<i class="fas fa-file-audio"></i>',
-        'wav': '<i class="fas fa-file-audio"></i>',
-        'ogg': '<i class="fas fa-file-audio"></i>',
-        
-        // Archives
-        'zip': '<i class="fas fa-file-archive"></i>',
-        'rar': '<i class="fas fa-file-archive"></i>',
-        '7z': '<i class="fas fa-file-archive"></i>',
-        'tar': '<i class="fas fa-file-archive"></i>',
-        'gz': '<i class="fas fa-file-archive"></i>',
-        
-        // Code
-        'html': '<i class="fas fa-file-code"></i>',
-        'css': '<i class="fas fa-file-code"></i>',
-        'js': '<i class="fas fa-file-code"></i>',
-        'json': '<i class="fas fa-file-code"></i>',
-        'py': '<i class="fas fa-file-code"></i>',
-        'java': '<i class="fas fa-file-code"></i>',
-        'cpp': '<i class="fas fa-file-code"></i>',
-        'php': '<i class="fas fa-file-code"></i>',
-    };
-    
-    return iconMap[extension] || '<i class="fas fa-file"></i>';
-}
-
-function isImageFile(filename) {
-    if (!filename) return false;
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
-    const extension = filename.split('.').pop().toLowerCase();
-    return imageExtensions.includes(extension);
-}
-
-function isVideoFile(filename) {
-    if (!filename) return false;
-    const videoExtensions = ['mp4', 'webm', 'mov', 'avi', 'mkv'];
-    const extension = filename.split('.').pop().toLowerCase();
-    return videoExtensions.includes(extension);
-}
-
-function isAudioFile(filename) {
-    if (!filename) return false;
-    const audioExtensions = ['mp3', 'wav', 'ogg', 'flac'];
-    const extension = filename.split('.').pop().toLowerCase();
-    return audioExtensions.includes(extension);
-}
-
-function formatMessageContent(content) {
-    if (!content) return '';
-    
-    // Escape HTML first
-    content = escapeHtml(content);
-    
-    // Replace URLs with clickable links
-    content = content.replace(
-        /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g, 
-        '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-link">$1</a>'
-    );
-    
-    // Format Discord markdown
-    content = content
-        // Bold
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        // Italic
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/_(.*?)_/g, '<em>$1</em>')
-        // Strikethrough
-        .replace(/~~(.*?)~~/g, '<del>$1</del>')
-        // Underline
-        .replace(/__(.*?)__/g, '<u>$1</u>')
-        // Code blocks with language
-        .replace(/```(\w+)?\n([\s\S]*?)```/g, (_, language, code) => `
-            <pre class="code-block${language ? ` language-${language}` : ''}">
-                <code>${code.trim()}</code>
-            </pre>
-        `)
-        // Inline code
-        .replace(/`(.*?)`/g, '<code class="inline-code">$1</code>')
-        // Quotes
-        .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-        // Newlines
-        .replace(/\n/g, '<br>');
-    
-    // Handle Discord emojis
-    content = content.replace(/<:([a-zA-Z0-9_]+):(\d+)>/g, (match, name, id) => {
-        return `<img src="https://cdn.discordapp.com/emojis/${id}.png" alt="${name}" class="emoji" />`;
-    });
-    
-    // Handle Discord animated emojis
-    content = content.replace(/<a:([a-zA-Z0-9_]+):(\d+)>/g, (match, name, id) => {
-        return `<img src="https://cdn.discordapp.com/emojis/${id}.gif" alt="${name}" class="emoji" />`;
-    });
-    
-    return content;
-}
-
-function truncateText(text, maxLength) {
-    if (!text) return '';
-    if (text.length <= maxLength) return text;
-    return text.substr(0, maxLength - 3) + '...';
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function showError(message) {
-    loading.remove();
-    app.innerHTML = `
-        <div class="error">
-            <h3>Error</h3>
-            <p>${escapeHtml(message)}</p>
-            <button onclick="location.reload()" class="retry-button">
-                Try Again
-            </button>
-        </div>
-    `;
-}
-
-function showPinnedMessages() {
-    const pinnedMessagesContainer = document.getElementById('pinned-messages');
-    pinnedMessagesContainer.innerHTML = '';
-    
-    if (pinnedMessages.length === 0) {
-        pinnedMessagesContainer.innerHTML = '<div class="no-pinned-messages">No pinned messages</div>';
-    } else {
-        pinnedMessages.forEach(message => {
-            const authorName = message.author.global_name || message.author.display_name || message.author.username;
-            const avatarUrl = message.author.avatar_url || generateDefaultAvatar(message.author.username);
-            const timestamp = formatTimestamp(message.timestamp);
+        // Get an icon for a file based on its extension
+        function getFileIcon(filename) {
+            if (!filename) return '<i class="fas fa-file"></i>';
             
-            const pinnedMessageElement = document.createElement('div');
-            pinnedMessageElement.className = 'pinned-message';
-            pinnedMessageElement.innerHTML = `
-                <div class="pinned-message-avatar">
-                    <img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(authorName)}'s avatar" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
-                </div>
-                <div class="pinned-message-content">
-                    <div class="pinned-message-header">
-                        <span class="pinned-message-author">${escapeHtml(authorName)}</span>
-                        <span class="pinned-message-timestamp">${timestamp}</span>
-                    </div>
-                    <div class="pinned-message-text">${formatMessageContent(message.content)}</div>
-                    ${message.attachments && message.attachments.length > 0 ? 
-                        `<div class="pinned-message-attachment">
-                            <i class="fas fa-paperclip"></i> ${message.attachments.length} attachment${message.attachments.length > 1 ? 's' : ''}
-                        </div>` : ''}
-                </div>
-            `;
+            const extension = filename.split('.').pop().toLowerCase();
             
-            pinnedMessageElement.addEventListener('click', () => {
-                pinnedModal.classList.remove('active');
-                scrollToMessage(message.message_id);
+            const iconMap = {
+                // Documents
+                'pdf': '<i class="fas fa-file-pdf"></i>',
+                'doc': '<i class="fas fa-file-word"></i>',
+                'docx': '<i class="fas fa-file-word"></i>',
+                'xls': '<i class="fas fa-file-excel"></i>',
+                'xlsx': '<i class="fas fa-file-excel"></i>',
+                'ppt': '<i class="fas fa-file-powerpoint"></i>',
+                'pptx': '<i class="fas fa-file-powerpoint"></i>',
+                'txt': '<i class="fas fa-file-alt"></i>',
+                
+                // Images
+                'jpg': '<i class="fas fa-file-image"></i>',
+                'jpeg': '<i class="fas fa-file-image"></i>',
+                'png': '<i class="fas fa-file-image"></i>',
+                'gif': '<i class="fas fa-file-image"></i>',
+                'webp': '<i class="fas fa-file-image"></i>',
+                
+                // Audio/Video
+                'mp4': '<i class="fas fa-file-video"></i>',
+                'mov': '<i class="fas fa-file-video"></i>',
+                'avi': '<i class="fas fa-file-video"></i>',
+                'mkv': '<i class="fas fa-file-video"></i>',
+                'mp3': '<i class="fas fa-file-audio"></i>',
+                'wav': '<i class="fas fa-file-audio"></i>',
+                'ogg': '<i class="fas fa-file-audio"></i>',
+                
+                // Archives
+                'zip': '<i class="fas fa-file-archive"></i>',
+                'rar': '<i class="fas fa-file-archive"></i>',
+                '7z': '<i class="fas fa-file-archive"></i>',
+                'tar': '<i class="fas fa-file-archive"></i>',
+                'gz': '<i class="fas fa-file-archive"></i>',
+                
+                // Code
+                'html': '<i class="fas fa-file-code"></i>',
+                'css': '<i class="fas fa-file-code"></i>',
+                'js': '<i class="fas fa-file-code"></i>',
+                'json': '<i class="fas fa-file-code"></i>',
+                'py': '<i class="fas fa-file-code"></i>',
+                'java': '<i class="fas fa-file-code"></i>',
+                'cpp': '<i class="fas fa-file-code"></i>',
+                'php': '<i class="fas fa-file-code"></i>',
+            };
+            
+            return iconMap[extension] || '<i class="fas fa-file"></i>';
+        }
+
+        // Check if a file is an image
+        function isImageFile(filename) {
+            if (!filename) return false;
+            const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+            const extension = filename.split('.').pop().toLowerCase();
+            return imageExtensions.includes(extension);
+        }
+
+        // Check if a file is a video
+        function isVideoFile(filename) {
+            if (!filename) return false;
+            const videoExtensions = ['mp4', 'webm', 'mov', 'avi', 'mkv'];
+            const extension = filename.split('.').pop().toLowerCase();
+            return videoExtensions.includes(extension);
+        }
+
+        // Check if a file is an audio file
+        function isAudioFile(filename) {
+            if (!filename) return false;
+            const audioExtensions = ['mp3', 'wav', 'ogg', 'flac'];
+            const extension = filename.split('.').pop().toLowerCase();
+            return audioExtensions.includes(extension);
+        }
+
+        // Format message content with Discord markdown
+        function formatMessageContent(content) {
+            if (!content) return '';
+            
+            // Escape HTML first
+            content = escapeHtml(content);
+            
+            // Replace URLs with clickable links
+            content = content.replace(
+                /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g, 
+                '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-link">$1</a>'
+            );
+            
+            // Format Discord markdown
+            content = content
+                // Bold
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // Italic
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/_(.*?)_/g, '<em>$1</em>')
+                // Strikethrough
+                .replace(/~~(.*?)~~/g, '<del>$1</del>')
+                // Underline
+                .replace(/__(.*?)__/g, '<u>$1</u>')
+                // Code blocks with language
+                .replace(/```(\w+)?\n([\s\S]*?)```/g, (_, language, code) => `
+                    <pre class="code-block${language ? ` language-${language}` : ''}">
+                        <code>${code.trim()}</code>
+                    </pre>
+                `)
+                // Inline code
+                .replace(/`(.*?)`/g, '<code class="inline-code">$1</code>')
+                // Quotes
+                .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+                // Newlines
+                .replace(/\n/g, '<br>');
+            
+            // Handle Discord emojis
+            content = content.replace(/<:([a-zA-Z0-9_]+):(\d+)>/g, (match, name, id) => {
+                return `<img src="https://cdn.discordapp.com/emojis/${id}.png" alt="${name}" class="emoji" />`;
             });
             
-            pinnedMessagesContainer.appendChild(pinnedMessageElement);
+            // Handle Discord animated emojis
+            content = content.replace(/<a:([a-zA-Z0-9_]+):(\d+)>/g, (match, name, id) => {
+                return `<img src="https://cdn.discordapp.com/emojis/${id}.gif" alt="${name}" class="emoji" />`;
+            });
+            
+            return content;
+        }
+
+        // Truncate text to a maximum length
+        function truncateText(text, maxLength) {
+            if (!text) return '';
+            if (text.length <= maxLength) return text;
+            return text.substr(0, maxLength - 3) + '...';
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Show an error message
+        function showError(message) {
+            loading.remove();
+            messagesWrapper.innerHTML = `
+                <div class="error">
+                    <h3>Error</h3>
+                    <p>${escapeHtml(message)}</p>
+                    <button onclick="location.reload()" class="retry-button">
+                        Try Again
+                    </button>
+                </div>
+            `;
+        }
+
+        // Show pinned messages in a modal
+        function showPinnedMessages() {
+            const pinnedMessagesContainer = document.getElementById('pinned-messages');
+            pinnedMessagesContainer.innerHTML = '';
+            
+            if (!pinnedMessages || pinnedMessages.length === 0) {
+                pinnedMessagesContainer.innerHTML = '<div class="no-pinned-messages">No pinned messages</div>';
+            } else {
+                pinnedMessages.forEach(message => {
+                    if (!message || !message.author) return;
+                    
+                    const authorName = message.author.global_name || message.author.display_name || message.author.username;
+                    const avatarUrl = message.author.avatar_url || generateDefaultAvatar(message.author.username);
+                    const timestamp = formatTimestamp(message.timestamp);
+                    
+                    const pinnedMessageElement = document.createElement('div');
+                    pinnedMessageElement.className = 'pinned-message';
+                    pinnedMessageElement.innerHTML = `
+                        <div class="pinned-message-avatar">
+                            <img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(authorName)}'s avatar" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                        </div>
+                        <div class="pinned-message-content">
+                            <div class="pinned-message-header">
+                                <span class="pinned-message-author">${escapeHtml(authorName)}</span>
+                                <span class="pinned-message-timestamp">${timestamp}</span>
+                            </div>
+                            <div class="pinned-message-text">${formatMessageContent(message.content || '')}</div>
+                            ${message.attachments && message.attachments.length > 0 ? 
+                                `<div class="pinned-message-attachment">
+                                    <i class="fas fa-paperclip"></i> ${message.attachments.length} attachment${message.attachments.length > 1 ? 's' : ''}
+                                </div>` : ''}
+                        </div>
+                    `;
+                    
+                    pinnedMessageElement.addEventListener('click', () => {
+                        pinnedModal.classList.remove('active');
+                        scrollToMessage(message.message_id);
+                    });
+                    
+                    pinnedMessagesContainer.appendChild(pinnedMessageElement);
+                });
+            }
+            
+            pinnedModal.classList.add('active');
+        }
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Discord Archive Viewer initialized');
+            fetchConversation();
         });
-    }
-    
-    pinnedModal.classList.add('active');
-}
-
-function openImageModal(imageUrl) {
-    const modal = document.getElementById('image-modal');
-    const modalImg = modal.querySelector('img');
-    modalImg.src = imageUrl;
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-}
-
-function openVideoModal(videoUrl, videoType) {
-    const modal = document.getElementById('video-modal');
-    const videoElement = modal.querySelector('video');
-    const sourceElement = videoElement.querySelector('source');
-    
-    sourceElement.src = videoUrl;
-    sourceElement.type = videoType || 'video/mp4';
-    
-    videoElement.load();
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-}
-
-// Initialize
-fetchConversation();
+    </script>
+</body>
+</html>
+        
