@@ -216,6 +216,100 @@ body {
     pointer-events: none;
 }
 
+/* Search Results Dropdown */
+.search-results-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: var(--bg-secondary);
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    margin-top: var(--spacing-xs);
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+    border: 1px solid var(--border-color);
+}
+
+.search-results-dropdown.active {
+    display: block;
+}
+
+.search-results-container {
+    padding: var(--spacing-xs);
+}
+
+.search-result {
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    margin-bottom: var(--spacing-xs);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.search-result:last-child {
+    margin-bottom: 0;
+    border-bottom: none;
+}
+
+.search-result:hover {
+    background-color: var(--bg-hover);
+}
+
+.search-result.selected {
+    background-color: var(--bg-hover);
+}
+
+.search-result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-xs);
+}
+
+.search-result-author {
+    font-weight: 500;
+    color: var(--accent-primary);
+}
+
+.search-result-timestamp {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.search-result-content {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-bottom: var(--spacing-sm);
+    word-break: break-word;
+}
+
+.jump-to-message-btn {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: none;
+    border-radius: var(--border-radius);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.jump-to-message-btn:hover {
+    background-color: var(--accent-primary);
+    color: white;
+}
+
+.no-search-results {
+    padding: var(--spacing-md);
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
 /* Buttons */
 .icon-button {
     background: none;
@@ -393,6 +487,12 @@ body {
 
 .message.highlight {
     background-color: rgba(232, 121, 249, 0.1);
+    animation: highlight-pulse 2s ease;
+}
+
+@keyframes highlight-pulse {
+    0%, 100% { background-color: rgba(232, 121, 249, 0.1); }
+    50% { background-color: rgba(232, 121, 249, 0.2); }
 }
 
 .message.search-highlight {
@@ -444,7 +544,10 @@ body {
 
 .message-content {
     flex: 1;
-    min-width: 0;
+    min-width: 0; /* Important for text overflow handling */
+    max-width: 100%; /* Ensure content doesn't overflow container */
+    word-wrap: break-word; /* Break long words */
+    overflow-wrap: break-word; /* Modern browsers */
 }
 
 .message-header {
@@ -486,6 +589,8 @@ body {
     white-space: pre-wrap;
     word-break: break-word;
     font-size: 0.9375rem;
+    max-width: 100%;
+    overflow-wrap: break-word;
 }
 
 /* Reply */
@@ -733,6 +838,8 @@ body {
     border-left: 4px solid;
     padding: var(--spacing-sm);
     max-width: 520px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .embed-author {
@@ -759,6 +866,7 @@ body {
     font-weight: 600;
     margin-bottom: var(--spacing-xs);
     color: var(--text-primary);
+    word-break: break-word;
 }
 
 .embed-title a {
@@ -774,6 +882,7 @@ body {
     font-size: 0.875rem;
     margin-bottom: var(--spacing-sm);
     color: var(--text-secondary);
+    word-break: break-word;
 }
 
 .embed-fields {
@@ -801,6 +910,7 @@ body {
 
 .embed-field-value {
     color: var(--text-secondary);
+    word-break: break-word;
 }
 
 .embed-image {
@@ -925,11 +1035,6 @@ body {
     background-color: var(--bg-secondary);
 }
 
-.profile-info {
-    padding: 0 var(--spacing-lg) var(--spacing-lg);
-    margin-top: var(--spacing-md); /* Small margin after avatar */
-}
-
 .profile-avatar img {
     width: 100%;
     height: 100%;
@@ -938,18 +1043,21 @@ body {
 
 .profile-info {
     padding: 0 var(--spacing-lg) var(--spacing-lg);
+    margin-top: var(--spacing-md); /* Small margin after avatar */
 }
 
 .profile-info h2 {
     text-align: center;
     font-size: 1.25rem;
     margin-bottom: var(--spacing-xs);
+    word-break: break-word;
 }
 
 .profile-display-name {
     text-align: center;
     color: var(--text-secondary);
     margin-bottom: var(--spacing-lg);
+    word-break: break-word;
 }
 
 .profile-section {
@@ -957,6 +1065,7 @@ body {
     background-color: var(--bg-tertiary);
     padding: var(--spacing-md);
     border-radius: var(--border-radius);
+    word-break: break-word;
 }
 
 .profile-section h3 {
@@ -1145,6 +1254,8 @@ body {
     overflow-x: auto;
     font-family: var(--font-code);
     font-size: 0.875rem;
+    max-width: 100%;
+    white-space: pre-wrap;
 }
 
 .inline-code {
@@ -1167,6 +1278,7 @@ body {
 .text-link {
     color: var(--link-color);
     text-decoration: none;
+    word-break: break-all;
 }
 
 .text-link:hover {
@@ -1255,10 +1367,13 @@ body {
         bottom: 0;
         z-index: 20;
         transition: left 0.3s ease;
+        width: 80%;
+        max-width: 280px;
     }
     
     .sidebar.active {
         left: 0;
+        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.2);
     }
     
     /* Mobile profile handling */
@@ -1270,6 +1385,7 @@ body {
         width: 100%;
         max-width: 320px;
         z-index: 20;
+        box-shadow: -2px 0 8px rgba(0, 0, 0, 0.2);
     }
     
     /* Hide desktop-only elements */
@@ -1317,6 +1433,17 @@ body {
     
     .embed {
         max-width: 100%;
+    }
+    
+    /* Adjust search results for mobile */
+    .search-results-dropdown {
+        position: fixed;
+        top: var(--header-height);
+        left: 0;
+        right: 0;
+        max-height: 50vh;
+        border-radius: 0;
+        margin-top: 0;
     }
 }
 
@@ -1369,4 +1496,33 @@ body {
     text-align: center;
     color: var(--text-muted);
     font-size: 0.875rem;
+}
+
+/* Fix for long words and URLs */
+.text, 
+.embed-description, 
+.embed-title, 
+.embed-field-value,
+.profile-info h2,
+.profile-display-name,
+.profile-section,
+.search-result-content {
+    word-break: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+}
+
+/* Blockquote styling */
+blockquote {
+    border-left: 3px solid var(--accent-secondary);
+    padding-left: var(--spacing-sm);
+    margin: var(--spacing-xs) 0;
+    color: var(--text-secondary);
+}
+
+/* Improve code block readability */
+.code-block code {
+    display: block;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
