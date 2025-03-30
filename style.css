@@ -1653,3 +1653,99 @@ pre {
     max-width: 100%;
     overflow-x: auto;
 }
+/* Make search more persistent on mobile */
+.search-container {
+    position: relative;
+    margin-right: var(--spacing-md);
+}
+
+/* Ensure search results stay visible */
+.search-results-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: var(--bg-secondary);
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    margin-top: var(--spacing-xs);
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+    border: 1px solid var(--border-color);
+}
+
+.search-results-dropdown.active {
+    display: block;
+}
+
+/* Mobile specific search fixes */
+@media (max-width: 768px) {
+    /* Make search results fixed position on mobile to prevent disappearing */
+    .search-results-dropdown {
+        position: fixed;
+        top: var(--header-height);
+        left: 0;
+        right: 0;
+        max-height: 50vh;
+        border-radius: 0;
+        margin-top: 0;
+        z-index: 1000;
+    }
+    
+    /* Ensure header stays fixed */
+    .header {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+    
+    /* Add a semi-transparent backdrop to search results */
+    .search-results-dropdown::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: -1;
+    }
+    
+    /* Add a close button for search results on mobile */
+    .search-results-container::before {
+        content: "×";
+        position: sticky;
+        top: 0;
+        right: 10px;
+        display: block;
+        text-align: right;
+        padding: 5px;
+        font-size: 20px;
+        color: var(--text-primary);
+        background-color: var(--bg-secondary);
+        cursor: pointer;
+    }
+}
+
+/* Add persistent fixed positioning for important UI elements */
+.header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+/* Make sure sidebar stays fixed on mobile */
+@media (max-width: 768px) {
+    .sidebar.active {
+        position: fixed;
+        left: 0;
+        top: var(--header-height);
+        bottom: 0;
+        z-index: 100;
+        width: 80%;
+        max-width: 280px;
+        overflow-y: auto;
+    }
+}
