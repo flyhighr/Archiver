@@ -890,6 +890,130 @@ async def health_check():
         logger.error(f"Health check failed: {e}", exc_info=True)
         raise HTTPException(status_code=503, detail="Service unhealthy")
 
+
+from fastapi import FastAPI, HTTPException, Depends, Query, UploadFile, File, Form
+import json
+from pydantic import ValidationError
+
+# Add this new endpoint to your existing FastAPI app
+
+@app.post("/conversations/upload-json")
+@monitor_performance()
+async def upload_conversation_json(
+    file: UploadFile = File(...)
+):
+    """
+    Upload a Discord conversation JSON file and create a conversation link.
+    This is useful for large conversations (>10k messages) that might timeout 
+    when using the regular API endpoint.
+    """
+    try:
+        logger.info(f"Received JSON file upload: {file.filename}")
+        
+        # Read and parse the JSON file
+        contents = await file.read()
+        try:
+            conversation_data = json.loads(contents)
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON file: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid JSON format: {str(e)}")
+        
+        # Validate the conversation structure
+        required_fields = ["conversation_id", "messages", "channel_id", "created_at"]
+        missing_fields = [field for field in required_fields if field not in conversation_data]
+        
+        if missing_fields:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid conversation format. Missing fields: {', '.join(missing_fields)}"
+            )
+            
+        # Check message count
+        message_count = len(conversation_data.get("messages", []))
+        logger.info(f"Processing conversation with {message_count} messages")
+        
+        # Convert to dict for MongoDB storage
+        conversation_dict = conversation_data
+        
+        # Validate channel_info has channel_id
+        if "channel_info" in conversation_dict and conversation_dict["channel_info"]:
+            if "channel_id" not in conversation_dict["channel_info"]:
+                # Add channel_id to channel_info if missing
+                conversation_dict["channel_info"]["channel_id"] = conversation_dict["channel_id"]
+        
+        # Add metadata and counts
+        conversation_dict["last_updated"] = datetime.utcnow().isoformat()
+        conversation_dict["message_count"] = message_count
+        conversation_dict["deleted_message_count"] = sum(
+            1 for msg in conversation_dict.get("messages", []) if msg.get("is_deleted", False)
+        )
+        
+        # Extract participants from messages and channel info
+        participants = await process_user_profiles(conversation_dict)
+        conversation_dict["participants"] = [user.model_dump() for user in participants]
+        
+        # Generate a secure, unique URL ID
+        conversation_id = conversation_dict["conversation_id"]
+        url_id = generate_secure_url_id(conversation_id)
+        base_url = os.getenv("BASE_URL", "https://archi.versz.fun")
+        share_url = f"{base_url}?id={conversation_id}&v={url_id}"
+        conversation_dict["share_url"] = share_url
+        
+        # Determine if this is a group DM
+        is_group_dm = False
+        dm_name = None
+        
+        if "channel_info" in conversation_dict and conversation_dict["channel_info"]:
+            channel_type = conversation_dict["channel_info"].get("type")
+            # Type 3 is group DM in Discord
+            if channel_type == 3:
+                is_group_dm = True
+                dm_name = conversation_dict["channel_info"].get("name")
+        
+        conversation_dict["is_group_dm"] = is_group_dm
+        conversation_dict["dm_name"] = dm_name
+        
+        # Check if conversation already exists
+        existing = await Database.db.conversations.find_one({"conversation_id": conversation_id})
+        if existing:
+            # Update instead of insert
+            result = await Database.db.conversations.replace_one(
+                {"conversation_id": conversation_id},
+                conversation_dict
+            )
+            logger.info(f"Updated existing conversation: {conversation_id}")
+            operation = "updated"
+        else:
+            # Insert new conversation
+            result = await Database.db.conversations.insert_one(conversation_dict)
+            logger.info(f"Created new conversation: {conversation_id} with {len(participants)} participants")
+            operation = "created"
+        
+        # Store users separately for future reference
+        for user in participants:
+            user_dict = user.model_dump()
+            # Upsert to avoid duplicates
+            await Database.db.users.update_one(
+                {"id": user_dict["id"]},
+                {"$set": user_dict},
+                upsert=True
+            )
+        
+        return {
+            "conversation_id": conversation_id,
+            "operation": operation,
+            "share_url": share_url,
+            "message_count": conversation_dict["message_count"],
+            "participants_count": len(participants)
+        }
+    except HTTPException:
+        raise
+    except ValidationError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=f"Validation error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error processing uploaded conversation: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to process conversation: {str(e)}")
 # Configure server port
 PORT = int(os.getenv("PORT", 10000))
 
