@@ -215,30 +215,20 @@ class Database:
     async def _create_indexes(cls):
         """Create indexes for better query performance"""
         try:
-            # Check if index already exists before creating
-            async with cls.db.conversations.aggregate([
-                {"$indexStats": {}}
-            ]) as cursor:
-                existing_indexes = await cursor.to_list(length=100)
-                existing_index_names = [idx.get('name') for idx in existing_indexes]
-                
-                # Only create conversation_id index if it doesn't exist
-                if 'conversation_id_1' not in existing_index_names:
-                    await cls.db.conversations.create_index("conversation_id", unique=True)
-                
-                # Other indexes that might not be unique
-                if 'channel_id_1' not in existing_index_names:
-                    await cls.db.conversations.create_index("channel_id")
-                
-                if 'created_at_1' not in existing_index_names:
-                    await cls.db.conversations.create_index("created_at")
+            # Create indexes directly without checking first (safer approach)
+            try:
+                await cls.db.conversations.create_index("conversation_id", unique=True)
+                await cls.db.conversations.create_index("channel_id")
+                await cls.db.conversations.create_index("created_at")
                 
                 # User indexes
                 if 'users' in cls.COLLECTIONS:
-                    if 'id_1' not in existing_index_names:
-                        await cls.db.users.create_index("id", unique=True)
+                    await cls.db.users.create_index("id", unique=True)
                 
-            logger.info("Database indexes verified successfully")
+                logger.info("Database indexes created successfully")
+            except Exception as e:
+                logger.error(f"Error creating database indexes: {e}")
+                logger.warning("Continuing without index creation")
         except Exception as e:
             logger.error(f"Error creating database indexes: {e}")
             logger.warning("Continuing without index creation")
@@ -645,7 +635,7 @@ async def list_conversations(
         }
     except Exception as e:
         logger.error(f"Error listing conversations: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to list conversations :( ")
+        raise HTTPException(status_code=500, detail="Failed to list conversations :(")
 
 # New endpoint to fetch user profiles
 @app.get("/users/{user_id}")
